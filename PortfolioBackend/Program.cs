@@ -8,13 +8,14 @@ using PortfolioBackend.Models;
 using PortfolioBackend.Services;
 using Microsoft.AspNetCore;
 using AspNetCore.Identity.Mongo;
-
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 
 namespace PortfolioBackend
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +34,7 @@ namespace PortfolioBackend
 
             //Identity
 
-            var connectionString = builder.Configuration.GetConnectionString("ConnectionString");
+            var connectionString = builder.Configuration.GetSection("MongoDb:ConnectionString").Value;
             builder.Services.AddIdentityMongoDbProvider<ApplicationUser, ApplicationRole, string>(identity =>
             {
                 identity.Password.RequiredLength = 8;
@@ -44,11 +45,30 @@ namespace PortfolioBackend
             mongo =>
             {
                 mongo.ConnectionString = connectionString;
+               
                 // other options
             });
 
 
             var app = builder.Build();
+
+            using (var scope = app.Services.CreateScope())
+            {
+                var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+                var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+
+                // Check if Admin role exists, if not, create it
+                if (!await roleManager.RoleExistsAsync("Admin"))
+                {
+                    await roleManager.CreateAsync(new ApplicationRole { Name = "Admin" });
+                }
+
+                // Check if Admin user exists, if not, create it
+                var adminUser = await userManager.FindByEmailAsync("admin@portfolio.com");
+             
+            }
+
+
 
 
             // Configure the HTTP request pipeline.
@@ -57,6 +77,10 @@ namespace PortfolioBackend
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+            app.UseHttpsRedirection();
+
+            app.UseAuthentication();
+            app.UseAuthorization();
             // GET
             app.MapGet("/api/techs", async (APIServices service) =>
             {
@@ -91,12 +115,26 @@ namespace PortfolioBackend
                 await service.UpdateAsync(id, updatedTech);
                 return Results.Ok(storedMessage);
             });
-            app.MapPost("/api/newtech", async (APIServices service,TechStack newTech) =>
+            app.MapPost("/api/newtech", async (APIServices service, TechStack newTech) =>
             {
-
                 await service.CreateAsync(newTech);
                 return Results.Ok(newTech);
+            }).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" });
 
+
+
+            app.MapPost("/api/auth/login", async (SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, LoginDto loginDto) =>
+            {
+                var user = await userManager.FindByNameAsync(loginDto.Username);
+                if (user == null) return Results.Unauthorized();
+
+                var result = await signInManager.PasswordSignInAsync(user, loginDto.Password, true, false);
+                if (result.Succeeded)
+                {
+                    return Results.Ok("Login successful");
+                }
+
+                return Results.Unauthorized();
             });
 
 
@@ -113,10 +151,6 @@ namespace PortfolioBackend
             });
             app.UseSwagger();
             app.UseSwaggerUI();
-            app.UseHttpsRedirection();
-
-            app.UseAuthorization();
-
 
             app.Run();
         }
