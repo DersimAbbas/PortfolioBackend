@@ -10,12 +10,15 @@ namespace PortfolioBackend.Models
         public string Id { get; set; }
 
         [BsonElement("Technologies")]
-        public string Technologies {  get; set; }
+        public string Technologies { get; set; } = null!;
 
         [BsonElement("Tech-Experience")]
-        public string TechExperience { get; set; }
+        public string TechExperience { get; set; } = null!;
         [BsonElement("skill-level")]
         public double SkillLevel { get; set; }
+
+        [BsonElement("image")]
+        public string? Image { get; set; }
 
     }
 }
