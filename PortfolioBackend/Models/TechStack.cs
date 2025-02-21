@@ -12,6 +12,9 @@ namespace PortfolioBackend.Models
         [BsonElement("project")]
         public string? project { get; set; }
 
+        [BsonElement("description")]
+        public string? Description { get; set; }
+
         [BsonElement("GitHubUrl")]
         public string? githubUrl {  get; set; }
 

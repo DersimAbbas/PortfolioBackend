@@ -143,7 +143,7 @@ namespace PortfolioBackend
             );
             // update by id
             app.MapPut(
-                "/api/tech{id}",
+                "/api/updatetech{id}",
                 async (APIServices service, TechStack updatedTech, string id) =>
                 {
                     var storedMessage = await service.GetByIdAsync(id);
