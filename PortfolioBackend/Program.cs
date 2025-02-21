@@ -1,10 +1,15 @@
 using System.Collections;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
+using System.Text;
 using AspNetCore.Identity.Mongo;
 using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
@@ -19,13 +24,40 @@ namespace PortfolioBackend
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            var jwtKey = builder.Configuration["Jwt:Key"];
+            var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+            var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+            if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer) || string.IsNullOrEmpty(jwtAudience))
+            {
+                throw new InvalidOperationException("JWT configuration is missing in appsettings.json.");
+            }
+
+            var key = Encoding.UTF8.GetBytes(jwtKey);
             // Add services to the container.
+            builder
+                .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.RequireHttpsMetadata = false;
+                    options.SaveToken = true;
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwtIssuer,
+                        ValidAudience = jwtAudience,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                    };
+                });
+
+            builder.Services.AddAuthorization();
             builder.Services.Configure<DatabaseSettings>(
                 builder.Configuration.GetSection("MongoDB")
             );
-
             builder.Services.AddSingleton<APIServices>();
-            builder.Services.AddAuthorization();
 
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
@@ -36,21 +68,22 @@ namespace PortfolioBackend
             var connectionString = builder
                 .Configuration.GetSection("MongoDb:ConnectionString")
                 .Value;
-            builder.Services.AddIdentityMongoDbProvider<ApplicationUser, ApplicationRole, string>(
-                identity =>
-                {
-                    identity.Password.RequiredLength = 8;
-                    identity.Password.RequireUppercase = true;
-                    identity.Password.RequireDigit = true;
-                },
-                mongo =>
-                {
-                    mongo.ConnectionString = connectionString;
+            builder
+                .Services.AddIdentityMongoDbProvider<ApplicationUser, ApplicationRole, string>(
+                    identity =>
+                    {
+                        identity.Password.RequiredLength = 8;
+                        identity.Password.RequireUppercase = true;
+                        identity.Password.RequireDigit = true;
+                    },
+                    mongo =>
+                    {
+                        mongo.ConnectionString = connectionString;
 
-                    // other options
-                }
-            );
-
+                        // other options
+                    }
+                )
+                .AddDefaultTokenProviders();
             var app = builder.Build();
 
             using (var scope = app.Services.CreateScope())
@@ -123,26 +156,31 @@ namespace PortfolioBackend
                 }
             );
             app.MapPost(
-                    "/api/newtech",
-                    async (APIServices service, TechStack newTech) =>
-                    {
-                        await service.CreateAsync(newTech);
-                        return Results.Ok(newTech);
-                    });
-                //)
-                //.RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" });
+                "/api/newtech",
+                async (APIServices service, TechStack newTech) =>
+                {
+                    await service.CreateAsync(newTech);
+                    return Results.Ok(newTech);
+                }
+            );
 
             app.MapPost(
                 "/api/auth/login",
                 async (
                     SignInManager<ApplicationUser> signInManager,
                     UserManager<ApplicationUser> userManager,
+                    IConfiguration config,
                     LoginDto loginDto
                 ) =>
                 {
                     var user = await userManager.FindByNameAsync(loginDto.Username);
                     if (user == null)
-                        return Results.Unauthorized();
+                    {
+                        return Results.Problem(
+                            "Invalid Credentials.",
+                            statusCode: StatusCodes.Status401Unauthorized
+                        );
+                    }
 
                     var result = await signInManager.PasswordSignInAsync(
                         user,
@@ -150,12 +188,44 @@ namespace PortfolioBackend
                         true,
                         false
                     );
-                    if (result.Succeeded)
+                    if (!result.Succeeded)
                     {
-                        return Results.Ok("Login successful");
+                        return Results.Problem(
+                            "Invalid Credentials.",
+                            statusCode: StatusCodes.Status401Unauthorized
+                        );
                     }
 
-                    return Results.Unauthorized();
+                    // Create JWT Token
+                    var key = Encoding.UTF8.GetBytes(config["Jwt:Key"]);
+                    var claims = new List<Claim>
+                    {
+                        new Claim(ClaimTypes.Name, user.UserName),
+                        new Claim(ClaimTypes.NameIdentifier, user.Id),
+                        new Claim(
+                            ClaimTypes.Role,
+                            "Admin"
+                        ) // Assign roles dynamically if needed
+                        ,
+                    };
+
+                    var tokenDescriptor = new SecurityTokenDescriptor
+                    {
+                        Subject = new ClaimsIdentity(claims),
+                        Expires = DateTime.UtcNow.AddHours(1), // Token expiry
+                        SigningCredentials = new SigningCredentials(
+                            new SymmetricSecurityKey(key),
+                            SecurityAlgorithms.HmacSha256Signature
+                        ),
+                        Issuer = config["Jwt:Issuer"],
+                        Audience = config["Jwt:Audience"],
+                    };
+
+                    var tokenHandler = new JwtSecurityTokenHandler();
+                    var token = tokenHandler.CreateToken(tokenDescriptor);
+                    var jwtToken = tokenHandler.WriteToken(token);
+
+                    return Results.Ok(new { Token = jwtToken });
                 }
             );
 
@@ -173,6 +243,7 @@ namespace PortfolioBackend
                     return Results.Ok();
                 }
             );
+
             app.UseSwagger();
             app.UseSwaggerUI();
 

@@ -9,6 +9,12 @@ namespace PortfolioBackend.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; }
 
+        [BsonElement("project")]
+        public string? project { get; set; }
+
+        [BsonElement("GitHubUrl")]
+        public string? githubUrl {  get; set; }
+
         [BsonElement("Technologies")]
         public string Technologies { get; set; } = null!;
 
