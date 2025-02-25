@@ -29,5 +29,7 @@ namespace PortfolioBackend.Models
         [BsonElement("image")]
         public string? Image { get; set; }
 
+        
+        
     }
 }
