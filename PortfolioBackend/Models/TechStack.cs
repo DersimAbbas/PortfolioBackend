@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace PortfolioBackend.Models
 {
+    [BsonIgnoreExtraElements]
     public class TechStack
     {
         [BsonId]

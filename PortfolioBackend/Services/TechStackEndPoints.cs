@@ -13,6 +13,12 @@ public static class TechStackEndpoints
             return Results.Ok(tech);
         });
 
+        routes.MapGet("/api/projects", async (APIServices service) =>
+        {
+            var project = await service.GetProjectsAsync();
+            return Results.Ok(project);
+        });
+
         routes.MapGet("/api/tech/{id}", async (APIServices service, string id) =>
         {
             var tech = await service.GetByIdAsync(id);

@@ -28,6 +28,20 @@ namespace PortfolioBackend.Services
             return technology;
         }
 
+        public async Task<List<TechStack>> GetProjectsAsync()
+        {
+
+            var filter = Builders<TechStack>.Filter.And(
+                Builders<TechStack>.Filter.Where(p => !string.IsNullOrEmpty(p.project)),
+                Builders<TechStack>.Filter.Where(p => !string.IsNullOrEmpty(p.Description)),
+                Builders<TechStack>.Filter.Where(p => !string.IsNullOrEmpty(p.Technologies)));
+            
+            return await _collection.Find(filter).ToListAsync();
+        }
+
+
+
+
         public async Task<TechStack?> GetByIdAsync(string id) =>
             await _collection.Find(m => m.Id == id).FirstOrDefaultAsync();
       
