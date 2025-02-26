@@ -20,11 +20,11 @@ namespace PortfolioBackend.Services
               dbSettings.Value.CollectionName);
 
         }
-  
+
         public async Task<List<TechStack>> GetAsync()
         {
 
-          var technology = await _collection.Find(tech => tech.project == null).ToListAsync();
+            var technology = await _collection.Find(tech => tech.project == null).ToListAsync();
             return technology;
         }
 
@@ -35,7 +35,7 @@ namespace PortfolioBackend.Services
                 Builders<TechStack>.Filter.Where(p => !string.IsNullOrEmpty(p.project)),
                 Builders<TechStack>.Filter.Where(p => !string.IsNullOrEmpty(p.Description)),
                 Builders<TechStack>.Filter.Where(p => !string.IsNullOrEmpty(p.Technologies)));
-            
+
             return await _collection.Find(filter).ToListAsync();
         }
 
@@ -44,7 +44,7 @@ namespace PortfolioBackend.Services
 
         public async Task<TechStack?> GetByIdAsync(string id) =>
             await _collection.Find(m => m.Id == id).FirstOrDefaultAsync();
-      
+
         public async Task CreateAsync(TechStack tech) =>
             await _collection.InsertOneAsync(tech);
 
@@ -76,7 +76,11 @@ namespace PortfolioBackend.Services
 
         public async Task CreateManyStagesAsync(List<PipeLineStage> stage)
         {
-          await _pipecollection.InsertManyAsync(stage);
+            await _pipecollection.InsertManyAsync(stage);
+        }
+        public async Task UpdatePipelineAsync(string id, PipeLineStage stage)
+        {
+            await _pipecollection.ReplaceOneAsync(p => p.Id == id, stage);
         }
 
     }

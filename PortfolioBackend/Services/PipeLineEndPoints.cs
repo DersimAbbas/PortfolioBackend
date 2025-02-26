@@ -10,14 +10,14 @@ public static class PipelineEndpoints
     {
         routes.MapGet("/pipelinestages", async (APIServices service) =>
         {
-           var response = await service.GetAllStagesAsync();
-            return Results.Ok(response) ??  Results.NotFound(response);
+            var response = await service.GetAllStagesAsync();
+            return Results.Ok(response) ?? Results.NotFound(response);
 
         });
 
-        routes.MapPost("/pipelinestages", async (APIServices service,PipeLineStage stage) =>
+        routes.MapPost("/pipelinestages", async (APIServices service, PipeLineStage stage) =>
         {
-           var response = await service.CreateStageAsync(stage);
+            var response = await service.CreateStageAsync(stage);
             return Results.Created($"/pipelinestages/{stage.Id}", stage) ?? Results.BadRequest(response);
         });
 
@@ -26,6 +26,11 @@ public static class PipelineEndpoints
         {
             await service.CreateManyStagesAsync(stages);
             return Results.Created("/pipelinestages", stages);
+        });
+        routes.MapPut("/updatepipeline/{id}", async (APIServices service, string id, PipeLineStage pipeline) =>
+        {
+
+            await service.UpdatePipelineAsync(id, pipeline);
         });
 
         return routes;
