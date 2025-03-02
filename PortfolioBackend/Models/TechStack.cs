@@ -32,6 +32,8 @@ namespace PortfolioBackend.Models
 
         [BsonElement("DemoUrl")]
         public string? DemoUrl { get; set; }
+        [BsonElement("level")]
+        public string Level { get; set; }
         
         
     }
