@@ -32,14 +32,15 @@ namespace PortfolioBackend
             builder.Services.AddAuthorization();
 
             // CORS configuration for React frontend
+            var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                ?? new[] { "http://localhost:5173", "http://localhost:4173" };
+
             builder.Services.AddCors(options =>
             {
                 options.AddDefaultPolicy(policy =>
                 {
-                    policy.WithOrigins(
-                            "http://localhost:5173",  // Vite dev server
-                            "http://localhost:4173"   // Vite preview
-                        )
+                    policy.WithOrigins(allowedOrigins)
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
