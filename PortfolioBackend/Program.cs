@@ -28,33 +28,27 @@ namespace PortfolioBackend
             var jwtKey = builder.Configuration["Jwt:Key"];
             var jwtIssuer = builder.Configuration["Jwt:Issuer"];
             var jwtAudience = builder.Configuration["Jwt:Audience"];
-
-            if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer) || string.IsNullOrEmpty(jwtAudience))
-            {
-                throw new InvalidOperationException("JWT configuration is missing in appsettings.json.");
-            }
-
-            var key = Encoding.UTF8.GetBytes(jwtKey);
-            // Add services to the container.
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
-                {
-                    options.RequireHttpsMetadata = false;
-                    options.SaveToken = true;
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = jwtIssuer,
-                        ValidAudience = jwtAudience,
-                        IssuerSigningKey = new SymmetricSecurityKey(key),
-                    };
-                });
-
+            
             builder.Services.AddAuthorization();
-            builder.Services.Configure<DatabaseSettings>(builder.Configuration.GetSection("MongoDB"));
+
+            // CORS configuration for React frontend
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.WithOrigins(
+                            "http://localhost:5173",  // Vite dev server
+                            "http://localhost:4173"   // Vite preview
+                        )
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
+                });
+            });
+
+            builder.Services.Configure<DatabaseSettings>(
+                builder.Configuration.GetSection("MongoDB")
+            );
             builder.Services.AddSingleton<APIServices>();
 
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -62,27 +56,35 @@ namespace PortfolioBackend
             builder.Services.AddSwaggerGen();
 
             // Identity configuration using MongoDB
-            var connectionString = builder.Configuration.GetSection("MongoDb:ConnectionString").Value;
-            builder.Services.AddIdentityMongoDbProvider<ApplicationUser, ApplicationRole, string>(
-                identity =>
-                {
-                    identity.Password.RequiredLength = 8;
-                    identity.Password.RequireUppercase = true;
-                    identity.Password.RequireDigit = true;
-                },
-                mongo =>
-                {
-                    mongo.ConnectionString = connectionString;
-                    // other options
-                }
-            ).AddDefaultTokenProviders();
+            var connectionString = builder
+                .Configuration.GetSection("MongoDb:ConnectionString")
+                .Value;
+            builder
+                .Services.AddIdentityMongoDbProvider<ApplicationUser, ApplicationRole, string>(
+                    identity =>
+                    {
+                        identity.Password.RequiredLength = 8;
+                        identity.Password.RequireUppercase = true;
+                        identity.Password.RequireDigit = true;
+                    },
+                    mongo =>
+                    {
+                        mongo.ConnectionString = connectionString;
+                        // other options
+                    }
+                )
+                .AddDefaultTokenProviders();
 
             var app = builder.Build();
 
             using (var scope = app.Services.CreateScope())
             {
-                var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-                var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+                var userManager = scope.ServiceProvider.GetRequiredService<
+                    UserManager<ApplicationUser>
+                >();
+                var roleManager = scope.ServiceProvider.GetRequiredService<
+                    RoleManager<ApplicationRole>
+                >();
 
                 // Check if Admin role exists, if not, create it
                 if (!await roleManager.RoleExistsAsync("Admin"))
@@ -100,22 +102,21 @@ namespace PortfolioBackend
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-          
+
             app.UseHttpsRedirection();
+            app.UseCors();
             app.UseAuthentication();
             app.UseAuthorization();
 
             // --- Endpoint mappings moved to extension methods ---
-            
+
             // TechStack endpoints
             app.MapTechStackEndpoints();
 
             // Authentication endpoints
             app.MapAuthEndpoints(app.Configuration);
 
-           
             app.MapPipelineEndpoints();
-           
 
             app.Run();
         }

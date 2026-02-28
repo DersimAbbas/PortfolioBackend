@@ -32,6 +32,11 @@ public static class PipelineEndpoints
 
             await service.UpdatePipelineAsync(id, pipeline);
         });
+        routes.MapDelete("/pipelinestages/{id}", async (APIServices service, string id) =>
+        {
+            var result = await service.DeleteStageAsync(id);
+            return result ? Results.Ok($"Deleted stage with ID: {id}") : Results.NotFound($"No stage found with ID: {id}");
+        });
 
         return routes;
     }

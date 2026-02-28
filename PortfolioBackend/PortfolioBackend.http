@@ -1,5 +1,4 @@
-@PortfolioBackend_HostAddress = http://backend:8081
-
+@PortfolioBackend_HostAddress = http://localhost:5148
 GET {{PortfolioBackend_HostAddress}}/swagger
 Accept: application/json
 

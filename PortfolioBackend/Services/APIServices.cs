@@ -39,8 +39,7 @@ namespace PortfolioBackend.Services
         public async Task<TechStack?> GetByIdAsync(string id) =>
             await _collection.Find(m => m.Id == id).FirstOrDefaultAsync();
 
-        public async Task CreateAsync(TechStack tech) => 
-            await _collection.InsertOneAsync(tech);
+        public async Task CreateAsync(TechStack tech) => await _collection.InsertOneAsync(tech);
 
         public async Task UpdateAsync(string id, TechStack updatedTech) =>
             await _collection.ReplaceOneAsync(m => m.Id == id, updatedTech);
@@ -80,6 +79,12 @@ namespace PortfolioBackend.Services
         public async Task UpdatePipelineAsync(string id, PipeLineStage stage)
         {
             await _pipecollection.ReplaceOneAsync(p => p.Id == id, stage);
+        }
+
+        public async Task<bool> DeleteStageAsync(string id)
+        {
+            var result = await _pipecollection.DeleteOneAsync(stage => stage.Id == id);
+            return result.DeletedCount > 0;
         }
     }
 }
